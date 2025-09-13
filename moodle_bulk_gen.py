@@ -94,6 +94,7 @@ password_web_api_key = read_password_generator_api_key()
 # Local password generator
 local_length = 12
 local_special_characters = True
+exclude_characters = "lI"
 
 # .csv fieldnames
 students_list_fieldnames = ["username", "password", "lastname", "firstname", "email", "lang", "cohort1"]
@@ -219,7 +220,7 @@ for row in input_Reader:
         password = pass_result["random_password"]
     else:
         # Local password generation
-        password = generate_password(local_length, local_special_characters, "lI")
+        password = generate_password(local_length, local_special_characters, exclude_characters)
 
     # Check for duplicate user
     if check_duplicate(username, email, duplicates_check_dicts):
