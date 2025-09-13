@@ -46,17 +46,12 @@ def generate_password(length, special_characters, exclude_characters):
     specials = "!@#$%&*()_"
     alphabet = string.ascii_letters + string.digits + specials
     
-    if special_characters:
-        specials_count = 2
-    else:
-        specials_count = 0
-
     while True:
         password = "".join(secrets.choice(alphabet) for i in range(length))
         if (sum(c.islower() for c in password) >= 4
                 and sum(c.isupper() for c in password) >= 2
                 and sum(c.isdigit() for c in password) >= 2
-                and sum(c in specials for c in password) == specials_count
+                and sum(c in specials for c in password) == special_characters
                 and all(c not in exclude_characters for c in password)):
             return password
 
@@ -93,8 +88,8 @@ password_web_api_key = read_password_generator_api_key()
 
 # Local password generator
 local_length = 12
-local_special_characters = True
-exclude_characters = "lI"
+local_special_characters = 2
+local_exclude_characters = "lI"
 
 # .csv fieldnames
 students_list_fieldnames = ["username", "password", "lastname", "firstname", "email", "lang", "cohort1"]
@@ -220,7 +215,7 @@ for row in input_Reader:
         password = pass_result["random_password"]
     else:
         # Local password generation
-        password = generate_password(local_length, local_special_characters, exclude_characters)
+        password = generate_password(local_length, local_special_characters, local_exclude_characters)
 
     # Check for duplicate user
     if check_duplicate(username, email, duplicates_check_dicts):
