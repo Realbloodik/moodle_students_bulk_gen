@@ -7,6 +7,7 @@ import requests
 import secrets
 import string
 
+
 ### Subfunctions
 def api_status_check(session, api_url, api_name):
     try:
@@ -21,11 +22,13 @@ def api_status_check(session, api_url, api_name):
         print(f"Error checking {api_name} API status:", e)
         exit(1)
 
+
 def check_duplicate(username, email, dicts_list):
     for dict in dicts_list:
         if dict["username"] == username or dict["email"] == email:
             return True
     return False
+
 
 def duplicates_file_empty(file):
     try:
@@ -42,10 +45,11 @@ def duplicates_file_empty(file):
         print("Error checking duplicates file:", e)
         exit(1)
 
+
 def generate_password(length, special_characters, exclude_characters):
     specials = "!@#$%&*()_"
     alphabet = string.ascii_letters + string.digits + specials
-    
+
     while True:
         password = "".join(secrets.choice(alphabet) for i in range(length))
         if (sum(c.islower() for c in password) >= 4
@@ -55,8 +59,10 @@ def generate_password(length, special_characters, exclude_characters):
                 and all(c not in exclude_characters for c in password)):
             return password
 
+
 def print_separator():
     print("----------------------------------------")
+
 
 def read_password_generator_api_key():
     try:
@@ -72,9 +78,11 @@ def read_password_generator_api_key():
         print("Error reading API key:", e)
         exit(1)
 
+
 ### Settings
 # Name transliteration API
 transliterate_url = "https://slovnyk.ua/translit.php"
+
 
 # Password generator Web API
 web_length = '12'
@@ -82,20 +90,25 @@ web_uppercase = 'true'
 web_lowercase = 'true'
 web_numbers = 'true'
 web_special = 'true'
-password_web_api_url = 'https://api.api-ninjas.com/v1/passwordgenerator?length={}&uppercase={}&lowercase={}&numbers={}&special={}'.format(web_length, web_uppercase, web_lowercase, web_numbers, web_special)
-# To use the password generator Web API, you need to get your own API key from https://api-ninjas.com/ and write it in the "password_api_key.txt" file
+password_web_api_url = 'https://api.api-ninjas.com/v1/passwordgenerator?length={}&uppercase={}&lowercase={}&numbers={}&special={}'.format(
+    web_length, web_uppercase, web_lowercase, web_numbers, web_special)
+# To use the password generator Web API, you need to get your own API key from https://api-ninjas.com/
+# and write it in the "password_api_key.txt" file
 password_web_api_key = read_password_generator_api_key()
+
 
 # Local password generator
 local_length = 12
 local_special_characters = 2
 local_exclude_characters = "lI"
 
+
 # .csv fieldnames
 students_list_fieldnames = ["username", "password", "lastname", "firstname", "email", "lang", "cohort1"]
 email_fieldnames = ["email", "addressing", "lastname", "firstname", "username", "password"]
 cohort_fieldnames = ["name", "idnumber", "description"]
 duplicates_fieldnames = ["lastname", "firstname", "username", "email", "cohort1"]
+
 
 ### Main program
 parser = argparse.ArgumentParser(description="Generate Moodle user accounts information, email and cohorts lists")
@@ -158,7 +171,7 @@ print_separator()
 cohorts_temp = []
 duplicates_check_dicts = []
 processed_rows = 0
- 
+
 for row in input_Reader:
     processed_rows += 1
 
@@ -184,8 +197,8 @@ for row in input_Reader:
     data = {}
     data["text"] = lastname_ukr + " " + firstname_ukr + " " + patronymic_ukr
     try:
-        response = requests.post(transliterate_url, data = data, timeout=30)
-    except:
+        response = requests.post(transliterate_url, data=data, timeout=30)
+    except Exception:
         print("Error:", response.status_code, response.text)
         exit(1)
 
@@ -200,8 +213,16 @@ for row in input_Reader:
         patronymic_eng = split_name_eng[2]
         username = firstname_eng.lower()[0:1] + "." + patronymic_eng.lower()[0:1] + "." + lastname_eng.lower()
     else:
-        patronymic_eng = ""
         username = firstname_eng.lower()[0:1] + "." + lastname_eng.lower()
+
+    # Check for duplicate user
+    if check_duplicate(username, email, duplicates_check_dicts):
+        duplicates_csv_Writer.writerow({"lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "email": email, "cohort1": cohort})
+        print(f"{processed_rows} - {username} - duplicate user found!")
+        continue
+
+    # Write duplicates temp list of dicts
+    duplicates_check_dicts.append({"username": username, "email": email})
 
     if password_web_api:
         # Web API password generation
@@ -217,15 +238,6 @@ for row in input_Reader:
         # Local password generation
         password = generate_password(local_length, local_special_characters, local_exclude_characters)
 
-    # Check for duplicate user
-    if check_duplicate(username, email, duplicates_check_dicts):
-        duplicates_csv_Writer.writerow({"lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "email": email, "cohort1": cohort})
-        print(f"{processed_rows} - {username} - duplicate user found!")
-        continue
-
-    # Write duplicates temp list of dicts
-    duplicates_check_dicts.append({"username": username, "email": email})
-
     # Write main result file
     outputWriter.writerow({"username": username, "password": password, "lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "email": email, "lang": "UK", "cohort1": cohort})
     print(f"{processed_rows} - {username} - user account info generated")
@@ -239,7 +251,7 @@ for row in input_Reader:
         addressing = "Шановний/Шановна"
 
     # Write email info file
-    output_email_Writer.writerow({"email": email, "addressing": addressing,"lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "password": password})
+    output_email_Writer.writerow({"email": email, "addressing": addressing, "lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "password": password})
     print(f"     {username} - email info generated")
 
     # Cohorts temp list
