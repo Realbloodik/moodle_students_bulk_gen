@@ -79,10 +79,24 @@ def read_password_generator_api_key():
         exit(1)
 
 
+def split_name(full_name):
+    for symbol in ["`", "ʼ", "’", "‘"]:
+        full_name = full_name.replace(symbol, "'")
+
+    split_name = full_name.split()
+    lastname = split_name[0]
+    firstname = split_name[1]
+    if len(split_name) == 3:
+        patronymic = split_name[2]
+    elif len(split_name) == 2:
+        patronymic = ""
+
+    return lastname, firstname, patronymic
+
+
 ### Settings
 # Name transliteration API
 transliterate_url = "https://slovnyk.ua/translit.php"
-
 
 # Password generator Web API
 web_length = '12'
@@ -96,12 +110,10 @@ password_web_api_url = 'https://api.api-ninjas.com/v1/passwordgenerator?length={
 # and write it in the "password_api_key.txt" file
 password_web_api_key = read_password_generator_api_key()
 
-
 # Local password generator
 local_length = 12
 local_special_characters = 2
 local_exclude_characters = "lI"
-
 
 # .csv fieldnames
 students_list_fieldnames = ["username", "password", "lastname", "firstname", "email", "lang", "cohort1"]
@@ -117,7 +129,7 @@ parser.add_argument("-o", "--output", help="The destination of the output file")
 parser.add_argument("-la", "--local_api", action="store_true", help="Use local API to generate passwords")
 args = parser.parse_args()
 
-# Input validation
+# Arguments validation
 if not args.input or not args.output:
     print("Usage: script.py -i <input_file> -o <output_file> -la to generate passwords locally")
     exit(1)
@@ -179,19 +191,7 @@ for row in input_Reader:
     cohort = row["cohort"]
 
     # Ukrainian name, last name and patronymic
-    name_full_ukr = row["name"]
-    for symbol in ["`", "ʼ", "’", "‘"]:
-        name_full_ukr = name_full_ukr.replace(symbol, "'")
-
-    split_name_ukr = name_full_ukr.split()
-    lastname_ukr = split_name_ukr[0]
-    firstname_ukr = split_name_ukr[1]
-    if len(split_name_ukr) == 3:
-        has_patronymic = True
-        patronymic_ukr = split_name_ukr[2]
-    elif len(split_name_ukr) == 2:
-        has_patronymic = False
-        patronymic_ukr = ""
+    lastname_ukr, firstname_ukr, patronymic_ukr = split_name(row["name"])
 
     # Transliteration
     data = {}
@@ -206,18 +206,19 @@ for row in input_Reader:
     response_page = BeautifulSoup(response.text, features="lxml")
 
     # English name, last name and patronymic
-    split_name_eng = response_page.find("textarea", id="translated1").string.split()
-    lastname_eng = split_name_eng[0]
-    firstname_eng = split_name_eng[1]
-    if has_patronymic:
-        patronymic_eng = split_name_eng[2]
+    lastname_eng, firstname_eng, patronymic_eng = split_name(response_page.find("textarea", id="translated1").string)
+    if patronymic_eng:
         username = firstname_eng.lower()[0:1] + "." + patronymic_eng.lower()[0:1] + "." + lastname_eng.lower()
     else:
         username = firstname_eng.lower()[0:1] + "." + lastname_eng.lower()
 
     # Check for duplicate user
     if check_duplicate(username, email, duplicates_check_dicts):
-        duplicates_csv_Writer.writerow({"lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "email": email, "cohort1": cohort})
+        duplicates_csv_Writer.writerow({"lastname": lastname_ukr,
+                                        "firstname": firstname_ukr + " " + patronymic_ukr,
+                                        "username": username,
+                                        "email": email,
+                                        "cohort1": cohort})
         print(f"{processed_rows} - {username} - duplicate user found!")
         continue
 
@@ -239,7 +240,13 @@ for row in input_Reader:
         password = generate_password(local_length, local_special_characters, local_exclude_characters)
 
     # Write main result file
-    outputWriter.writerow({"username": username, "password": password, "lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "email": email, "lang": "UK", "cohort1": cohort})
+    outputWriter.writerow({"username": username,
+                           "password": password,
+                           "lastname": lastname_ukr,
+                           "firstname": firstname_ukr + " " + patronymic_ukr,
+                           "email": email,
+                           "lang": "UK",
+                           "cohort1": cohort})
     print(f"{processed_rows} - {username} - user account info generated")
 
     # Select correct addressing
@@ -251,7 +258,12 @@ for row in input_Reader:
         addressing = "Шановний/Шановна"
 
     # Write email info file
-    output_email_Writer.writerow({"email": email, "addressing": addressing, "lastname": lastname_ukr, "firstname": firstname_ukr + " " + patronymic_ukr, "username": username, "password": password})
+    output_email_Writer.writerow({"email": email,
+                                  "addressing": addressing,
+                                  "lastname": lastname_ukr,
+                                  "firstname": firstname_ukr + " " + patronymic_ukr,
+                                  "username": username,
+                                  "password": password})
     print(f"     {username} - email info generated")
 
     # Cohorts temp list
@@ -262,7 +274,9 @@ print_separator()
 
 # Write unique cohorts list
 for cohort in cohorts_temp:
-    output_cohorts_Writer.writerow({"name": cohort, "idnumber": cohort, "description": ""})
+    output_cohorts_Writer.writerow({"name": cohort,
+                                    "idnumber": cohort,
+                                    "description": ""})
     print(f"{cohort} - cohort record added")
 
 # Close all files
