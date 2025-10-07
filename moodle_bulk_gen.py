@@ -239,11 +239,11 @@ def main():
     for row in input_Reader:
         processed_rows += 1
 
-        email = row["email"]
-        cohort = row["cohort"]
+        email = row["email"].strip()
+        cohort = row["cohort"].strip()
 
         # Ukrainian name, last name and patronymic
-        lastname_ukr, firstname_ukr, patronymic_ukr = split_name(row["name"])
+        lastname_ukr, firstname_ukr, patronymic_ukr = split_name(row["name"].strip())
 
         # Transliteration
         data = {}
