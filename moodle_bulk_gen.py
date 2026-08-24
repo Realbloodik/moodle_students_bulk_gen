@@ -72,12 +72,12 @@ def read_password_generator_api_key():
             api_key = api_key_file.read().strip()
             return {"X-Api-Key": api_key}
     except FileNotFoundError:
+        print_separator()
         print(
             "Error: 'password_api_key.txt' file not found. File has been created. Please place your API key inside it."
         )
         with open("password_api_key.txt", "w") as api_key_file:
             api_key_file.write("Place your API key here...")
-        exit(1)
     except Exception as e:
         print("Error reading API key:", e)
         exit(1)
@@ -158,12 +158,16 @@ def main():
         description="Generate Moodle user accounts information, email and cohorts lists"
     )
     parser.add_argument(
-        "-i", "--input", help="The file for the program to use", type=str
+        "-i",
+        "--input",
+        required=True,
+        help="The file for the program to use",
+        type=str,
     )
     parser.add_argument(
         "-o",
         "--output",
-        default="output.csv",
+        default=None,
         help="The destination of the output file",
         type=str,
     )
@@ -176,17 +180,33 @@ def main():
     args = parser.parse_args()
 
     # Arguments validation
-    if not args.input:
-        print("Usage: script.py -i <input_file> [-o] <output_file> [-l]")
-        exit(1)
-    elif args.output and args.input == args.output:
-        print("Input and output files must be different.")
-        exit(1)
-    elif not str(args.input).endswith(".csv") or (
-        args.output and not str(args.output).endswith(".csv")
-    ):
-        print("Input and output files must be .csv format.")
-        exit(1)
+    if not args.input.lower().endswith(".csv"):
+        parser.error("Input file must be in .csv format.")
+
+    if not args.output:
+        name, ext = os.path.splitext(args.input)
+        args.output = f"{name}_output{ext}"
+    elif not args.output.lower().endswith(".csv"):
+        parser.error("Output file must be in .csv format.")
+
+    # Нормализуем пути (абсолютный путь + приведение регистра) перед сравнением
+    if os.path.abspath(args.input).lower() == os.path.abspath(args.output).lower():
+        parser.error("Input and output files must be different.")
+
+    print_separator()
+    print(
+        "A program for generating Moodle user accounts information for bulk uploading, emailing, and cohort lists."
+    )
+    print_separator()
+
+    session = requests.session()
+
+    # APIs status check
+    api_status_check(session, transliterate_url, "Transliteration")
+    if not args.local_api:
+        api_status_check(session, "https://api-ninjas.com/", "Password Generation")
+
+    print_separator()
 
     # Open files
     input_csv = open(args.input, newline="", encoding="utf-8")
@@ -216,21 +236,6 @@ def main():
         duplicates_csv, fieldnames=duplicates_fieldnames, delimiter=","
     )
     duplicates_csv_Writer.writeheader()
-
-    print_separator()
-    print(
-        "A program for generating Moodle user accounts information for bulk uploading, emailing, and cohort lists."
-    )
-    print_separator()
-
-    session = requests.session()
-
-    # APIs status check
-    api_status_check(session, transliterate_url, "Transliteration")
-    if not args.local_api:
-        api_status_check(session, "https://api-ninjas.com/", "Password Generation")
-
-    print_separator()
 
     cohorts_temp = []
     duplicates_check_dicts = []
