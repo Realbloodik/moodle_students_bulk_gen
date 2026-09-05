@@ -1,4 +1,4 @@
 Студенти.lnk
-password_api_key.txt
+config/password_api_key.txt
 *.pyc
 *.code-workspace
