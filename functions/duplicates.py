@@ -1,11 +1,13 @@
 import csv
 
 
-def check_for_duplicate(username, email, dicts_list):
+def check_for_duplicate(email, dicts_list):
+    row = 1
     for dict in dicts_list:
-        if dict["username"] == username or dict["email"] == email:
-            return True
-    return False
+        row += 1
+        if dict["email"] == email:
+            return True, row
+    return False, 0
 
 
 def duplicates_file_empty(file):
@@ -13,7 +15,7 @@ def duplicates_file_empty(file):
         with open(file, "r", newline="", encoding="utf-8") as csvfile:
             reader = csv.reader(csvfile)
             rows = list(reader)
-            if len(rows) <= 1:  # Only header or empty
+            if len(rows) <= 1:
                 return True
             else:
                 return False

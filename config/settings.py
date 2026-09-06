@@ -1,5 +1,8 @@
 # Global configuration settings for the Moodle Students Bulk Generator
 
+# Path to the JSON file containing names
+NAMES_JSON_FILE = "config/names.json"
+
 # Enable additional hex characters in usernames (e.g., for duplicate usernames)
 enable_hex_characters = True
 
@@ -30,9 +33,9 @@ cohort_fieldnames = [
     "description"
 ]
 duplicates_fieldnames = [
+    "original_row",
     "lastname",
     "firstname",
-    "username",
     "email",
     "cohort1"
 ]

@@ -4,6 +4,7 @@ import csv
 import functions.api as api
 import functions.duplicates as duplicates
 import functions.misc as misc
+import functions.names as names
 import functions.pswrd_gen as pswrd_gen
 import os
 import requests
@@ -59,6 +60,7 @@ def main():
     )
     misc.print_separator()
 
+    # Start a requests session for API calls
     session = requests.session()
 
     # APIs status check
@@ -67,6 +69,10 @@ def main():
     if not args.local_api:
         api.api_status_check(
             session, cfg.web_api_url, "Generate Password Web API")
+
+    # Check if the names JSON file exists and load names from it
+    names.check_json_file_exists()
+    names.load_names_from_json()
 
     misc.print_separator()
 
@@ -116,18 +122,22 @@ def main():
     for row in input_Reader:
         processed_rows += 1
 
+        # Read and clean the cohort field from the input CSV
+        # TODO: Consider checking against existing cohorts in Moodle via API
+        cohort = row["cohort"].strip() if row["cohort"].strip() else ""
+        if cohort not in cohorts_temp:
+            cohorts_temp.append(cohort)
+
         # Check E-Mail validity and normalize it
         email = misc.validate_email_address(row["email"].strip())
-
-        cohort = row["cohort"].strip()
 
         # Receive firstname, lastname and patronymic in Ukrainian
         # from the name field of the input CSV file
         lastname_ukr, firstname_ukr, patronymic_ukr = misc.split_name(
             row["name"].strip())
 
-        # Transliterate name in Ukrainian to English using the transliteration
-        # API
+        # Transliterate name in Ukrainian to English using
+        # the transliteration API
         lastname_eng, firstname_eng, patronymic_eng = api.transliterate_name(
             lastname_ukr, firstname_ukr, patronymic_ukr)
 
@@ -135,31 +145,39 @@ def main():
         username = misc.generate_username(
             lastname_eng, firstname_eng, patronymic_eng)
 
-        # Check if the generated username or email already exists
-        # in the processed users list
-        if duplicates.check_for_duplicate(
-                username, email, processed_users):
+        # Check if the email already exists in the processed users list
+        # TODO: Consider checking against existing users in Moodle via API
+        duplicate_found, duplicate_row = duplicates.check_for_duplicate(
+            email, processed_users)
+        if duplicate_found:
             duplicates_csv_Writer.writerow(
                 {
+                    "original_row": duplicate_row,
                     "lastname": lastname_ukr,
                     "firstname": firstname_ukr + " " + patronymic_ukr,
-                    "username": username,
                     "email": email,
                     "cohort1": cohort,
                 }
             )
-            print(f"{processed_rows} - {username} - duplicate user found!")
+            print(f"{processed_rows} - {email} - DUPLICATE user found!")
             continue
 
         # If not a duplicate, write to the list of processed users
-        processed_users.append({"username": username, "email": email})
+        processed_users.append(
+            {
+                "lastname": lastname_ukr,
+                "firstname": firstname_ukr + " " + patronymic_ukr,
+                "email": email,
+                "cohort1": cohort,
+            }
+        )
 
-        if not args.local_api:
-            # Web API password generation
-            password = pswrd_gen.generate_password_web_api()
-        else:
+        if args.local_api:
             # Local password generation
             password = pswrd_gen.generate_password_local()
+        else:
+            # Web API password generation
+            password = pswrd_gen.generate_password_web_api()
 
         # Write to main output file for Moodle bulk upload
         outputWriter.writerow(
@@ -176,7 +194,7 @@ def main():
         print(f"{processed_rows} - {username} - user account info generated")
 
         # Select correct salutation for email based on the first name
-        salutation = misc.select_salutation(firstname_ukr)
+        salutation = names.select_salutation(firstname_ukr)
 
         # Write to email output file for sending emails to students
         output_email_Writer.writerow(
@@ -190,10 +208,6 @@ def main():
             }
         )
         print(f"     {username} - email info generated")
-
-        # Cohorts temp list
-        if cohort not in cohorts_temp:
-            cohorts_temp.append(cohort)
 
     misc.print_separator()
 

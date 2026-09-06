@@ -1,5 +1,4 @@
 from email_validator import validate_email, EmailNotValidError
-import config.names as names
 import config.settings as cfg
 import random
 import re
@@ -53,27 +52,19 @@ def generate_username(lastname, firstname, patronymic):
     return username
 
 
-# TODO: Implement a function to add new names to the men_names and women_names
-# lists in config/names.py on the fly
-def select_salutation(firstname_ukr):
-    if firstname_ukr in names.men:
-        salutation = "Шановний"
-    elif firstname_ukr in names.women:
-        salutation = "Шановна"
-    else:
-        salutation = "Шановний/Шановна"
-
-    return salutation
-
-
 def validate_email_address(email):
     given_email = email
 
     while True:
         try:
-            emailinfo = validate_email(given_email, check_deliverability=False)
+            normalized_email = validate_email(
+                given_email, check_deliverability=False).normalized
+            local_part, domain = normalized_email.split("@")
+            if not re.match(r"^[a-zA-Z0-9._-]+$", local_part):
+                raise EmailNotValidError(
+                    "Email contains invalid characters (like '/')")
 
-            return emailinfo.normalized
+            return normalized_email
         except EmailNotValidError as e:
             print_separator()
             print(f"ERROR - Invalid E-Mail address: {given_email}")
