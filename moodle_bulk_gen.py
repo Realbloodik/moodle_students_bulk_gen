@@ -131,6 +131,19 @@ def main():
         # Check E-Mail validity and normalize it
         email = misc.validate_email_address(row["email"].strip())
 
+        # Check if the email already exists in the processed users list
+        # TODO: Consider checking against existing users in Moodle via API
+        duplicate_found, duplicate_row = duplicates.check_for_duplicate(
+            email, processed_users)
+        if duplicate_found:
+            duplicates_csv_Writer.writerow(
+                {
+                    "email": email,
+                    "cohort1": cohort,
+                }
+            )
+            print(f"{processed_rows} - {email} - DUPLICATE user found!")
+
         # Receive firstname, lastname and patronymic in Ukrainian
         # from the name field of the input CSV file
         lastname_ukr, firstname_ukr, patronymic_ukr = misc.split_name(
@@ -144,23 +157,6 @@ def main():
         # Generate username based on the transliterated name
         username = misc.generate_username(
             lastname_eng, firstname_eng, patronymic_eng)
-
-        # Check if the email already exists in the processed users list
-        # TODO: Consider checking against existing users in Moodle via API
-        duplicate_found, duplicate_row = duplicates.check_for_duplicate(
-            email, processed_users)
-        if duplicate_found:
-            duplicates_csv_Writer.writerow(
-                {
-                    "original_row": duplicate_row,
-                    "lastname": lastname_ukr,
-                    "firstname": firstname_ukr + " " + patronymic_ukr,
-                    "email": email,
-                    "cohort1": cohort,
-                }
-            )
-            print(f"{processed_rows} - {email} - DUPLICATE user found!")
-            continue
 
         # If not a duplicate, write to the list of processed users
         processed_users.append(

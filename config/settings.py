@@ -33,9 +33,6 @@ cohort_fieldnames = [
     "description"
 ]
 duplicates_fieldnames = [
-    "original_row",
-    "lastname",
-    "firstname",
     "email",
     "cohort1"
 ]
