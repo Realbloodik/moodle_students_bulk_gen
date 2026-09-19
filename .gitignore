@@ -2,3 +2,5 @@
 config/password_api_key.txt
 *.pyc
 *.code-workspace
+*.env
+*.csv

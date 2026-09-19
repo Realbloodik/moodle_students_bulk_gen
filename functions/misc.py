@@ -1,35 +1,24 @@
 from email_validator import validate_email, EmailNotValidError
 import config.settings as cfg
+import csv
 import random
 import re
 import string
 
 
-def print_separator():
-    print("----------------------------------------")
+def file_empty(file):
+    try:
+        with open(file, "r", newline="", encoding="utf-8") as csvfile:
+            reader = csv.reader(csvfile)
+            next(reader, None)
+            has_second_row = next(reader, None)
+            return has_second_row is None
 
-
-def normalize_name(full_name):
-    for symbol in ["`", "ʼ", "’", "‘"]:
-        full_name = full_name.replace(symbol, "'")
-
-    text = re.sub(r'[\(\[\{].*?[\)\]\}]', '', full_name)
-    text = re.sub(r"[^\w\s'-]", '', text, flags=re.UNICODE)
-    text = re.sub(r'\d+', '', text)
-    text = re.sub(r'\s+', ' ', text)
-    text = re.sub(r'-+', '-', text)
-
-    return text.strip(" -")
-
-
-def split_name(full_name):
-    items = normalize_name(full_name).split()[:3]
-
-    lastname = items[0] if len(items) > 0 else ""
-    firstname = items[1] if len(items) > 1 else ""
-    patronymic = items[2] if len(items) == 3 else ""
-
-    return lastname, firstname, patronymic
+    except FileNotFoundError:
+        return True
+    except Exception as e:
+        print(f"ERROR while checking '{file}':", e)
+        exit(1)
 
 
 def generate_username(lastname, firstname, patronymic):
@@ -50,6 +39,33 @@ def generate_username(lastname, firstname, patronymic):
         username += "_" + random_hex
 
     return username
+
+
+def normalize_name(full_name):
+    for symbol in ["`", "ʼ", "’", "‘"]:
+        full_name = full_name.replace(symbol, "'")
+
+    text = re.sub(r'[\(\[\{].*?[\)\]\}]', '', full_name)
+    text = re.sub(r"[^\w\s'-]", '', text, flags=re.UNICODE)
+    text = re.sub(r'\d+', '', text)
+    text = re.sub(r'\s+', ' ', text)
+    text = re.sub(r'-+', '-', text)
+
+    return text.strip(" -")
+
+
+def print_separator():
+    print("----------------------------------------")
+
+
+def split_name(full_name):
+    items = normalize_name(full_name).split()[:3]
+
+    lastname = items[0] if len(items) > 0 else ""
+    firstname = items[1] if len(items) > 1 else ""
+    patronymic = items[2] if len(items) == 3 else ""
+
+    return lastname, firstname, patronymic
 
 
 def validate_email_address(email):

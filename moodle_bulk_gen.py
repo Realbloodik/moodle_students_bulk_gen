@@ -1,9 +1,11 @@
 import argparse
+import config.pswrd_gen_web_api as cfg_pswrd_web_api
 import config.settings as cfg
 import csv
 import functions.api as api
 import functions.duplicates as duplicates
 import functions.misc as misc
+import functions.moodle as moodle
 import functions.names as names
 import functions.pswrd_gen as pswrd_gen
 import os
@@ -14,7 +16,7 @@ import requests
 def main():
     # Command-line arguments parsing
     parser = argparse.ArgumentParser(
-        description="Generate Moodle user accounts information,"
+        description="Generate Moodle user accounts information, "
         "email and cohorts lists"
     )
     parser.add_argument(
@@ -37,6 +39,12 @@ def main():
         action="store_true",
         help="Use local password generator instead of Web API",
     )
+    parser.add_argument(
+        "-m",
+        "--moodle_rest",
+        action="store_true",
+        help="Use Moodle REST API for cohorts and users duplicates check"
+    )
     args = parser.parse_args()
 
     # Command-line arguments validation
@@ -55,7 +63,7 @@ def main():
 
     misc.print_separator()
     print(
-        "A program for generating Moodle user accounts information"
+        "A program for generating Moodle user accounts information "
         "for bulk uploading, emailing, and cohort lists."
     )
     misc.print_separator()
@@ -65,10 +73,15 @@ def main():
 
     # APIs status check
     api.api_status_check(
-        session, cfg.transliterate_url, "Transliterate API")
+        session, cfg.transliterate_url, "Transliterate")
+    if args.moodle_rest:
+        api.api_status_check(
+            session, cfg.MOODLE_URL, "Moodle")
+        cfg.check_for_moodle_api_token()
     if not args.local_api:
         api.api_status_check(
-            session, cfg.web_api_url, "Generate Password Web API")
+            session, cfg_pswrd_web_api.api_url, "Generate Password Web")
+        cfg_pswrd_web_api.check_for_pswrd_gen_web_api_token()
 
     # Check if the names JSON file exists and load names from it
     names.check_json_file_exists()
@@ -78,20 +91,24 @@ def main():
 
     # Create and open files for writing
     files = []
+    filenames = []
 
     input_csv = open(
         args.input, newline="", encoding="utf-8")
+    filenames.append(args.input)
     files.append(input_csv)
     input_Reader = csv.DictReader(input_csv)
 
     output_csv = open(
         args.output, "w", newline="", encoding="utf-8")
+    filenames.append(args.output)
     files.append(output_csv)
     outputWriter = csv.DictWriter(
         output_csv, fieldnames=cfg.students_fieldnames)
     outputWriter.writeheader()
 
     email_csv_name = str(args.output).replace(".csv", "_email.csv")
+    filenames.append(email_csv_name)
     output_email_csv = open(
         email_csv_name, "w", newline="", encoding="utf-8")
     files.append(output_email_csv)
@@ -100,6 +117,7 @@ def main():
     output_email_Writer.writeheader()
 
     cohorts_csv_name = str(args.output).replace(".csv", "_cohorts.csv")
+    filenames.append(cohorts_csv_name)
     output_cohorts_csv = open(
         cohorts_csv_name, "w", newline="", encoding="utf-8")
     files.append(output_cohorts_csv)
@@ -108,6 +126,7 @@ def main():
     output_cohorts_Writer.writeheader()
 
     duplicates_csv_name = str(args.output).replace(".csv", "_duplicates.csv")
+    filenames.append(duplicates_csv_name)
     duplicates_csv = open(
         duplicates_csv_name, "w", newline="", encoding="utf-8")
     files.append(duplicates_csv)
@@ -123,26 +142,30 @@ def main():
         processed_rows += 1
 
         # Read and clean the cohort field from the input CSV
-        # TODO: Consider checking against existing cohorts in Moodle via API
-        cohort = row["cohort"].strip() if row["cohort"].strip() else ""
-        if cohort not in cohorts_temp:
-            cohorts_temp.append(cohort)
+        cohort = row["cohort"].strip()
+        if cohort and cohort not in cohorts_temp:
+            if (
+                not args.moodle_rest
+                or not moodle.check_if_cohort_exists(cohort)
+            ):
+                cohorts_temp.append(cohort)
 
         # Check E-Mail validity and normalize it
         email = misc.validate_email_address(row["email"].strip())
 
         # Check if the email already exists in the processed users list
-        # TODO: Consider checking against existing users in Moodle via API
-        duplicate_found, duplicate_row = duplicates.check_for_duplicate(
-            email, processed_users)
+        duplicate_found, duplicate_username = duplicates.check_for_duplicate(
+            email, processed_users, args.moodle_rest)
         if duplicate_found:
             duplicates_csv_Writer.writerow(
                 {
+                    "username": duplicate_username,
                     "email": email,
                     "cohort1": cohort,
                 }
             )
             print(f"{processed_rows} - {email} - DUPLICATE user found!")
+            continue
 
         # Receive firstname, lastname and patronymic in Ukrainian
         # from the name field of the input CSV file
@@ -163,6 +186,7 @@ def main():
             {
                 "lastname": lastname_ukr,
                 "firstname": firstname_ukr + " " + patronymic_ukr,
+                "username": username,
                 "email": email,
                 "cohort1": cohort,
             }
@@ -203,7 +227,7 @@ def main():
                 "password": password,
             }
         )
-        print(f"     {username} - email info generated")
+        print(f"    {username} - email info generated")
 
     misc.print_separator()
 
@@ -214,17 +238,24 @@ def main():
         )
         print(f"{cohort} - cohort record added")
 
+    if not cohorts_temp:
+        print("No new cohorts were added")
+
     # Close all opened files
     for file in files:
         file.close()
 
-    # Remove duplicates file if empty
-    if duplicates.duplicates_file_empty(duplicates_csv_name):
-        try:
-            os.remove(duplicates_csv_name)
-        except Exception as e:
-            print("Error removing duplicates file:", e)
-            exit(1)
+    # Remove files if empty
+    for file in filenames:
+        if misc.file_empty(file):
+            try:
+                if os.path.exists(file):
+                    misc.print_separator()
+                    os.remove(file)
+                    print(f"{file} file was empty and is now deleted")
+            except Exception as e:
+                print(f"Error removing '{file}':", e)
+                exit(1)
 
     misc.print_separator()
     print("Done!")

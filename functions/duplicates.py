@@ -1,26 +1,13 @@
-import csv
+import functions.moodle as moodle
 
 
-def check_for_duplicate(email, dicts_list):
-    row = 1
-    for dict in dicts_list:
-        row += 1
-        if dict["email"] == email:
-            return True, row
-    return False, 0
+def check_for_duplicate(email, dicts_list, moodle_rest):
+    for user_dict in dicts_list:
+        if user_dict.get("email") == email:
+            return True, user_dict.get("username", True)
 
+    if moodle_rest:
+        moodle_username = moodle.check_if_user_exists(email)
+        return bool(moodle_username), moodle_username
 
-def duplicates_file_empty(file):
-    try:
-        with open(file, "r", newline="", encoding="utf-8") as csvfile:
-            reader = csv.reader(csvfile)
-            rows = list(reader)
-            if len(rows) <= 1:
-                return True
-            else:
-                return False
-    except FileNotFoundError:
-        return True
-    except Exception as e:
-        print("ERROR while checking duplicates file:", e)
-        exit(1)
+    return False, None

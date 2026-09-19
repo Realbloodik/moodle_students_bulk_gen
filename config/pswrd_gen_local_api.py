@@ -1,6 +1,6 @@
 # Local password generator settings
 length = 12
-specials = "!@#$%&*()_"
+specials = "!#$%^&*=?"
 exclude_chars = "lI"
 lowercase = 4
 uppercase = 2

@@ -16,7 +16,7 @@ What this program does:
 
 6. Generates third .csv with all cohorts from the input file, so I can add them to the Moodle in bulk.
 
-7. Generates a fourth .csv file with all duplicate users if any are present, so that users can be added to them manually later.
+7. Generates a fourth .csv file with all duplicate users if any are present, so that users can be added manually later.
 
 ## Examples
 
@@ -43,8 +43,9 @@ The program was created and tested on Python 3.10
 External libraries used:
 - [beautifulsoup4](https://pypi.org/project/beautifulsoup4/)
 - [requests](https://pypi.org/project/requests/)
+- [dotenv](https://pypi.org/project/python-dotenv/)
 
 ## Usage
 The program runs from CLI, typical usage is:</br>
-`python moodle_bulk_gen.py -i <input_file.csv> -o <output_file.csv> -la (optional)`</br>
-`-la` - use local password generator
+`python moodle_bulk_gen.py -i <input_file.csv> -o <output_file.csv> -l (optional) -m (optional)`</br>
+`-l` - use local password generator, `-m` - use Moodle REST API.

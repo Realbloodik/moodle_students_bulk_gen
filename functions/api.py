@@ -7,7 +7,7 @@ import requests
 def api_status_check(session, api_url, api_name):
     try:
         response = session.get(api_url)
-        if response.status_code == 200:
+        if response.status_code in [200, 400, 401, 403]:
             print(f"{api_name} API status: OK")
         else:
             print(f"{api_name} API status: DOWN")
@@ -15,24 +15,6 @@ def api_status_check(session, api_url, api_name):
             exit(1)
     except requests.RequestException as e:
         print(f"ERROR while checking {api_name} API status:", e)
-        exit(1)
-
-
-def read_password_generator_api_key():
-    try:
-        with open("config/password_api_key.txt", "r") as api_key_file:
-            api_key = api_key_file.read().strip()
-            return {"X-Api-Key": api_key}
-    except FileNotFoundError:
-        misc.print_separator()
-        print(
-            "ERROR: 'password_api_key.txt' file not found. File has been"
-            "created. Please place your API key inside it."
-        )
-        with open("config/password_api_key.txt", "w") as api_key_file:
-            api_key_file.write("Place your API key here...")
-    except Exception as e:
-        print("ERROR while reading API key:", e)
         exit(1)
 
 

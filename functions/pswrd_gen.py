@@ -19,6 +19,7 @@ def generate_password_local():
             and sum(c.isdigit() for c in password) >= cfg_local.digits
             and sum(c in specials for c in password) == cfg_local.special_chars
             and all(c not in cfg_local.exclude_chars for c in password)
+            and password[0] not in specials
         ):
             return password
 
@@ -26,7 +27,9 @@ def generate_password_local():
 # Web API password generation function
 def generate_password_web_api():
     response = requests.get(
-        cfg_web.api_url, headers=cfg_web.api_key)
+        cfg_web.api_gen_url,
+        headers={'X-Api-Key': cfg_web.PASSWORD_GEN_WEB_API_TOKEN}
+    )
     if response.status_code == requests.codes.ok:
         pass_result = response.json()
 
