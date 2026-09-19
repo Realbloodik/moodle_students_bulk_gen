@@ -78,7 +78,9 @@ def validate_email_address(email):
             local_part, domain = normalized_email.split("@")
             if not re.match(r"^[a-zA-Z0-9._-]+$", local_part):
                 raise EmailNotValidError(
-                    "Email contains invalid characters (like '/')")
+                    "Email contains invalid characters "
+                    "(like '/' or not english letters)"
+                )
 
             return normalized_email
         except EmailNotValidError as e:
