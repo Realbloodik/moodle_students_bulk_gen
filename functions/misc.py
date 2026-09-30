@@ -1,4 +1,6 @@
-from email_validator import validate_email, EmailNotValidError
+from email_validator import (
+    validate_email, EmailNotValidError, EmailUndeliverableError
+)
 import config.settings as cfg
 import csv
 import random
@@ -68,27 +70,69 @@ def split_name(full_name):
     return lastname, firstname, patronymic
 
 
+def _check_email(email):
+    normalized = validate_email(email, check_deliverability=False).normalized
+
+    LOCAL_PART_RE = re.compile(r"^[a-zA-Z0-9._+-]+$")
+    local_part, _domain = normalized.rsplit("@", 1)
+    if not LOCAL_PART_RE.match(local_part):
+        raise EmailNotValidError(
+            "Email contains invalid characters "
+            "(like '/' or non-English letters)"
+        )
+
+    validate_email(normalized, check_deliverability=True)
+
+    return normalized
+
+
+def _ask_override(email):
+    while True:
+        choice = input(
+            "[R]etry with a new address / [O]verride and use it anyway? "
+        ).strip().lower()
+        if choice in ("r", "retry", ""):
+            return False
+        if choice in ("o", "override"):
+            confirm = input(
+                f"Use '{email}' even though it failed validation? (yes/no): "
+            ).strip().lower()
+            if confirm in ("y", "yes"):
+                return True
+        else:
+            print("Please enter R or O.")
+
+
 def validate_email_address(email):
-    given_email = email
+    given_email = email.strip()
 
     while True:
         try:
-            normalized_email = validate_email(
-                given_email, check_deliverability=False).normalized
-            local_part, domain = normalized_email.split("@")
-            if not re.match(r"^[a-zA-Z0-9._-]+$", local_part):
-                raise EmailNotValidError(
-                    "Email contains invalid characters "
-                    "(like '/' or not english letters)"
-                )
+            return _check_email(given_email)
 
-            return normalized_email
+        except EmailUndeliverableError as e:
+            print_separator()
+            print(
+                f"WARNING - Address looks valid but is undeliverable:"
+                f" {given_email}"
+            )
+            print(f"Details: {e}")
+            print_separator()
+
+            if _ask_override(given_email):
+                return validate_email(
+                    given_email, check_deliverability=False
+                ).normalized
+
         except EmailNotValidError as e:
             print_separator()
             print(f"ERROR - Invalid E-Mail address: {given_email}")
-            print(f"Details: {str(e)}")
+            print(f"Details: {e}")
             print_separator()
 
-            given_email = input("Please input a valid E-Mail address:").strip()
-            print("Validating the provided E-Mail address...")
-            print_separator()
+            if _ask_override(given_email):
+                return given_email
+
+        given_email = input("Please input a valid E-Mail address: ").strip()
+        print("Validating the provided E-Mail address...")
+        print_separator()
